@@ -164,7 +164,7 @@ curl -H "X-API-Key: demo" \
 
 Скриншот успешного выполнения workflow:
 
-![Успешный GitHub Actions workflow](lab5-ci-success.png)
+![Успешный GitHub Actions workflow](lab5.png)
 
 ---
 
@@ -186,6 +186,13 @@ lab5/tests/postman/collection.json
 * получение списка правил.
 
 Тесты выполняются автоматически в CI с помощью Newman.
+
+или
+
+```bash
+npm install -g newman
+newman run tests/postman/collection.json
+```
 
 ---
 
