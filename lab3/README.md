@@ -189,7 +189,7 @@ class RecommendationService:
                     "message": issue["message"],
                     "evidence": issue["evidence"],
                 })
-
+ 
         self.repo.save_recommendations(run_id, recos)
         return run_id
 
