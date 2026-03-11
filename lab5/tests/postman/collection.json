@@ -1,0 +1,105 @@
+{
+  "info": {
+    "name": "Lab5 Integration Tests",
+    "_postman_id": "11111111-1111-1111-1111-111111111111",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health OK",
+      "request": {
+        "method": "GET",
+        "header": [{"key":"X-API-Key","value":"demo"}],
+        "url": {"raw": "http://localhost:8000/api/v1/health", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","v1","health"]}
+      },
+      "event": [{
+        "listen": "test",
+        "script": {"exec": [
+          "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+        ]}
+      }]
+    },
+    {
+      "name": "Create Account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key":"X-API-Key","value":"demo"},
+          {"key":"Content-Type","value":"application/json"}
+        ],
+        "body": { "mode": "raw", "raw": "{\"name\":\"Demo\",\"direct_account_id\":\"12345\"}" },
+        "url": {"raw": "http://localhost:8000/api/v1/accounts", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","v1","accounts"]}
+      },
+      "event": [{
+        "listen": "test",
+        "script": {"exec": [
+          "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+          "var json = pm.response.json();",
+          "pm.environment.set('accountId', json.id);"
+        ]}
+      }]
+    },
+    {
+      "name": "List Accounts",
+      "request": {
+        "method": "GET",
+        "header": [{"key":"X-API-Key","value":"demo"}],
+        "url": {"raw": "http://localhost:8000/api/v1/accounts", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","v1","accounts"]}
+      },
+      "event": [{
+        "listen": "test",
+        "script": {"exec": [
+          "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+        ]}
+      }]
+    },
+    {
+      "name": "Create Analysis Run",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key":"X-API-Key","value":"demo"},
+          {"key":"Content-Type","value":"application/json"}
+        ],
+        "body": { "mode": "raw", "raw": "{\"account_id\":\"{{accountId}}\",\"date_from\":\"2026-03-01\",\"date_to\":\"2026-03-07\"}" },
+        "url": {"raw": "http://localhost:8000/api/v1/analysis-runs", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","v1","analysis-runs"]}
+      },
+      "event": [{
+        "listen": "test",
+        "script": {"exec": [
+          "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+          "var json = pm.response.json();",
+          "pm.environment.set('runId', json.run_id);"
+        ]}
+      }]
+    },
+    {
+      "name": "Get Recommendations",
+      "request": {
+        "method": "GET",
+        "header": [{"key":"X-API-Key","value":"demo"}],
+        "url": {"raw": "http://localhost:8000/api/v1/analysis-runs/{{runId}}/recommendations", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","v1","analysis-runs","{{runId}}","recommendations"]}
+      },
+      "event": [{
+        "listen": "test",
+        "script": {"exec": [
+          "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+        ]}
+      }]
+    },
+    {
+      "name": "List Rules",
+      "request": {
+        "method": "GET",
+        "header": [{"key":"X-API-Key","value":"demo"}],
+        "url": {"raw": "http://localhost:8000/api/v1/rules", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","v1","rules"]}
+      },
+      "event": [{
+        "listen": "test",
+        "script": {"exec": [
+          "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+        ]}
+      }]
+    }
+  ]
+}

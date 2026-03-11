@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DSS — Яндекс Директ</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+
+    p.subtitle {
+      color: #6b7280;
+      margin-bottom: 30px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      margin-top: 6px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 14px;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .secondary {
+      background: #10b981;
+    }
+
+    .secondary:hover {
+      background: #059669;
+    }
+
+    pre {
+      background: #111827;
+      color: #f9fafb;
+      padding: 14px;
+      border-radius: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-top: 15px;
+      min-height: 80px;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>DSS — Оптимизация Яндекс Директ</h1>
+    <p class="subtitle">
+      Учебный интерфейс для проверки API, создания аккаунтов, запуска анализа и просмотра рекомендаций.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>1. Проверка API</h2>
+        <p class="small">Запрос health для проверки работоспособности backend.</p>
+        <button onclick="checkHealth()">Проверить Health</button>
+        <pre id="healthOut"></pre>
+      </div>
+
+      <div class="card">
+        <h2>2. Создать аккаунт</h2>
+        <label>Название</label>
+        <input id="accName" value="Demo account" />
+
+        <label>Direct Account ID</label>
+        <input id="accDirectId" value="12345" />
+
+        <button onclick="createAccount()">Создать аккаунт</button>
+        <pre id="accountOut"></pre>
+      </div>
+
+      <div class="card">
+        <h2>3. Список аккаунтов</h2>
+        <button class="secondary" onclick="loadAccounts()">Загрузить аккаунты</button>
+        <pre id="accountsOut"></pre>
+      </div>
+
+      <div class="card">
+        <h2>4. Запустить анализ</h2>
+        <label>Account ID</label>
+        <input id="runAccountId" placeholder="Вставь UUID аккаунта" />
+
+        <label>Date from</label>
+        <input id="dateFrom" value="2026-03-01" />
+
+        <label>Date to</label>
+        <input id="dateTo" value="2026-03-07" />
+
+        <button onclick="runAnalysis()">Запустить анализ</button>
+        <pre id="runOut"></pre>
+      </div>
+
+      <div class="card">
+        <h2>5. Получить рекомендации</h2>
+        <label>Run ID</label>
+        <input id="runIdInput" placeholder="Вставь run_id" />
+
+        <button class="secondary" onclick="getRecommendations()">Показать рекомендации</button>
+        <pre id="recoOut"></pre>
+      </div>
+
+      <div class="card">
+        <h2>6. Список правил</h2>
+        <button onclick="loadRules()">Загрузить правила</button>
+        <pre id="rulesOut"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = "demo";
+
+    async function api(path, options = {}) {
+      const headers = {
+        "X-API-Key": API_KEY,
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      };
+
+      const response = await fetch(path, {
+        ...options,
+        headers
+      });
+
+      const text = await response.text();
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        data
+      };
+    }
+
+    function print(id, value) {
+      document.getElementById(id).textContent =
+        typeof value === "string" ? value : JSON.stringify(value, null, 2);
+    }
+
+    async function checkHealth() {
+      const res = await api("/api/v1/health", { method: "GET" });
+      print("healthOut", res);
+    }
+
+    async function createAccount() {
+      const name = document.getElementById("accName").value;
+      const directId = document.getElementById("accDirectId").value;
+
+      const res = await api("/api/v1/accounts", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name,
+          direct_account_id: directId
+        })
+      });
+
+      print("accountOut", res);
+
+      if (res.ok && res.data.id) {
+        document.getElementById("runAccountId").value = res.data.id;
+      }
+    }
+
+    async function loadAccounts() {
+      const res = await api("/api/v1/accounts", { method: "GET" });
+      print("accountsOut", res);
+    }
+
+    async function runAnalysis() {
+      const accountId = document.getElementById("runAccountId").value;
+      const dateFrom = document.getElementById("dateFrom").value;
+      const dateTo = document.getElementById("dateTo").value;
+
+      const res = await api("/api/v1/analysis-runs", {
+        method: "POST",
+        body: JSON.stringify({
+          account_id: accountId,
+          date_from: dateFrom,
+          date_to: dateTo
+        })
+      });
+
+      print("runOut", res);
+
+      if (res.ok && res.data.run_id) {
+        document.getElementById("runIdInput").value = res.data.run_id;
+      }
+    }
+
+    async function getRecommendations() {
+      const runId = document.getElementById("runIdInput").value;
+      const res = await api(`/api/v1/analysis-runs/${runId}/recommendations`, {
+        method: "GET"
+      });
+      print("recoOut", res);
+    }
+
+    async function loadRules() {
+      const res = await api("/api/v1/rules", { method: "GET" });
+      print("rulesOut", res);
+    }
+  </script>
+</body>
+</html>
