@@ -222,7 +222,7 @@
 ## Тесты
 
 ### Endpoint: GET /api/v1/health
-
+ 
 **Тест 1 (успех):**
 
 * Method: GET
