@@ -63,7 +63,7 @@
 
 Ниже приведена use case diagram
 
-![usecase](lab1.png)
+![usecase](lab1.png) 
 
 ---
 
