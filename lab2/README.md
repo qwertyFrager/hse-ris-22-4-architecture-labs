@@ -46,27 +46,24 @@
 ![c4_components_backend](lab2-3.png)
 
 Показано разбиение Backend на компоненты:
-- Auth & RBAC
-- Account Integration (подключение аккаунта/токенов)
-- Campaign Data Service (работа с данными кампаний)
-- KPI Calculator (расчет метрик)
-- Rules Engine (проверки и правила)
-- Recommendations Service (формирование рекомендаций)
-- Reporting API (выдача данных на UI)
-- Repositories (доступ к БД)
-- Queue Client (постановка задач воркеру)
+- Controllers — точка входа в backend.
+- Auth — проверяет, кто может смотреть KPI и менять правила.
+- Services — реализуют бизнес-логику по отдельным зонам ответственности.
+- Repository — отделяет бизнес-логику от SQL и работы с БД.
+- Task Publisher — передает тяжёлые и фоновые операции в очередь.
+- Notification Event Service — изолирует формирование уведомлений от основной логики API.
 
 ### Компоненты контейнера Worker/Scheduler
 
 ![c4_components_worker](lab2-4.png)
 
 Показано, как Worker выполняет:
-- Scheduler (cron/планировщик)
-- Direct API Client
-- Metrica API Client (опционально)
-- Data Normalizer (приведение данных к единому формату)
-- KPI Job / Rules Job (пайплайн обработки)
-- Persistence Adapter (запись результатов в БД)
-- Notification Sender (опционально)
+- Scheduler — запускает периодические фоновые задачи по расписанию
+- Task Consumer — получает задачи из Message Queue
+- Data Collection Service — забирает статистику из Yandex Direct API и, при необходимости, из Yandex Metrica API
+- KPI Calculation Service — считает KPI и агрегирует результаты
+- Rule Evaluation Service — применяет правила и ищет отклонения
+- Result Persistence Service — сохраняет результаты обработки
+- Repository Layer — доступ к данным в Database
 
 ---
