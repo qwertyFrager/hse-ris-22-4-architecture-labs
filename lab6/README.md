@@ -1,116 +1,148 @@
 # Лабораторная работа №6
-## Тема: Использование шаблонов проектирования
-### Цель работы
-Получить опыт применения шаблонов проектирования при написании кода программной системы.
 
-В рамках лабораторной работы шаблоны проектирования рассматриваются на примере системы поддержки принятия решений для оптимизации рекламных кампаний в Яндекс Директ.  
-Система получает статистику, рассчитывает KPI, применяет правила анализа и формирует рекомендации для маркетолога.
+## Тема: Использование шаблонов проектирования
+
+### Цель работы
+
+Получить практический опыт применения шаблонов проектирования при разработке программной системы.
+
+### Связь с предыдущей работой
+
+Данная лабораторная работа связана с предыдущей работой, в которой проектировалась система поддержки принятия решений для оптимизации рекламных кампаний в Яндекс Директ.
+В той работе была определена архитектура системы, выделены основные сущности и компоненты: получение статистики, расчет KPI, применение правил анализа и формирование рекомендаций.
+
+В данной лабораторной работе эта же система рассматривается уже с точки зрения шаблонов проектирования.
+То есть если в предыдущей работе основной акцент был сделан на структуре системы и распределении ответственности между компонентами, то здесь показывается, **как именно эту систему можно реализовать в коде с помощью шаблонов GoF**.
+
+В качестве примера рассматривается система, которая:
+
+* получает статистику рекламных кампаний;
+* рассчитывает показатели эффективности;
+* анализирует данные по набору правил;
+* формирует рекомендации для маркетолога.
 
 ---
 
-# Шаблоны проектирования GoF
-
-## Порождающие шаблоны
+# Порождающие шаблоны
 
 ## 1. Factory Method
 
-**Общее назначение:**  
-Определяет интерфейс для создания объектов, позволяя подклассам решать, какой класс создавать.
+### Что делает шаблон
 
-**Назначение в проекте:**  
-Используется для создания разных типов правил анализа по их коду (`LOW_CTR`, `HIGH_SPEND_NO_CONVERSIONS` и т.д.).
+Factory Method нужен для создания объектов без прямого указания конкретного класса в клиентском коде.
+Проще говоря, мы не пишем везде вручную `LowCtrRule()` или `HighSpendNoConversionsRule()`, а передаем код правила на фабрику, и она сама решает, какой объект создать.
 
-### UML-диаграмма
-```mermaid
-classDiagram
-    class RuleFactory {
-      +create_rule(code)
-    }
+### Зачем он нужен в этом проекте
 
-    class BaseRule {
-      <<abstract>>
-      +check(stats, kpi)
-    }
+В системе анализа рекламы есть разные правила проверки кампаний.
+Например:
 
-    class LowCtrRule {
-      +check(stats, kpi)
-    }
+* правило низкого CTR;
+* правило высокого расхода без конверсий;
+* правило слишком дорогого клика.
 
-    class HighSpendNoConversionsRule {
-      +check(stats, kpi)
-    }
+Если создавать такие объекты вручную в разных местах программы, код быстро станет неудобным и запутанным.
+Поэтому удобнее сделать отдельную фабрику правил.
 
-    RuleFactory --> BaseRule
-    BaseRule <|-- LowCtrRule
-    BaseRule <|-- HighSpendNoConversionsRule
-````
+### Как используется
 
-### Код
+По строковому коду правила фабрика возвращает нужный объект.
+
+### Код с комментариями
 
 ```python
 from abc import ABC, abstractmethod
 
+# Базовый абстрактный класс для всех правил анализа
 class BaseRule(ABC):
     @abstractmethod
     def check(self, stats, kpi):
         pass
 
+
+# Конкретное правило: низкий CTR
 class LowCtrRule(BaseRule):
     def check(self, stats, kpi):
         if kpi["ctr"] < 0.01:
-            return {"rule": "LOW_CTR", "message": "Низкий CTR"}
+            return {
+                "rule": "LOW_CTR",
+                "message": "CTR рекламной кампании слишком низкий"
+            }
         return None
 
+
+# Конкретное правило: большой расход, но нет конверсий
 class HighSpendNoConversionsRule(BaseRule):
     def check(self, stats, kpi):
         if stats["spend"] > 1000 and stats["conversions"] == 0:
-            return {"rule": "HIGH_SPEND_NO_CONVERSIONS", "message": "Высокий расход без конверсий"}
+            return {
+                "rule": "HIGH_SPEND_NO_CONVERSIONS",
+                "message": "Кампания тратит бюджет, но не приносит конверсий"
+            }
         return None
 
+
+# Фабрика создает нужный объект правила по его коду
 class RuleFactory:
     def create_rule(self, code: str) -> BaseRule:
         if code == "LOW_CTR":
             return LowCtrRule()
-        if code == "HIGH_SPEND_NO_CONVERSIONS":
+        elif code == "HIGH_SPEND_NO_CONVERSIONS":
             return HighSpendNoConversionsRule()
-        raise ValueError("Unknown rule code")
+        else:
+            raise ValueError(f"Неизвестный код правила: {code}")
+
+
+# Пример использования
+factory = RuleFactory()
+rule = factory.create_rule("LOW_CTR")
+result = rule.check(
+    stats={"spend": 500, "conversions": 2},
+    kpi={"ctr": 0.005}
+)
+print(result)
 ```
+
+### Что здесь происходит
+
+В этом примере клиентский код не знает, какой именно класс будет создан.
+Он просто говорит фабрике: «дай мне правило `LOW_CTR`».
+Фабрика сама возвращает объект `LowCtrRule`.
+
+### Почему это удобно
+
+Преимущество в том, что при добавлении нового правила нужно изменить только фабрику и добавить новый класс.
+Остальной код системы можно не переписывать.
 
 ---
 
 ## 2. Builder
 
-**Общее назначение:**
-Позволяет поэтапно конструировать сложный объект.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для построения объекта рекомендации, где есть rule, message, evidence и campaign_id.
+Builder нужен для пошагового создания сложного объекта.
+Он полезен, когда объект содержит несколько полей, которые заполняются постепенно.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class RecommendationBuilder {
-      +set_campaign_id(id)
-      +set_rule(rule)
-      +set_message(message)
-      +set_evidence(evidence)
-      +build()
-    }
+В системе после анализа формируется рекомендация для маркетолога.
+Она состоит не из одного значения, а сразу из нескольких частей:
 
-    class Recommendation {
-      +campaign_id
-      +rule
-      +message
-      +evidence
-    }
+* идентификатор кампании;
+* код правила;
+* текст рекомендации;
+* доказательства или числовые данные.
 
-    RecommendationBuilder --> Recommendation
-```
+Такой объект удобно собирать поэтапно.
 
-### Код
+### Как используется
+
+Сначала создается строитель объекта, потом ему по очереди передаются нужные данные, а в конце вызывается `build()`.
+
+### Код с комментариями
 
 ```python
+# Объект рекомендации
 class Recommendation:
     def __init__(self, campaign_id=None, rule=None, message=None, evidence=None):
         self.campaign_id = campaign_id
@@ -118,13 +150,21 @@ class Recommendation:
         self.message = message
         self.evidence = evidence or {}
 
+    def __repr__(self):
+        return (
+            f"Recommendation(campaign_id={self.campaign_id}, "
+            f"rule={self.rule}, message={self.message}, evidence={self.evidence})"
+        )
+
+
+# Builder поэтапно собирает Recommendation
 class RecommendationBuilder:
     def __init__(self):
         self.obj = Recommendation()
 
     def set_campaign_id(self, campaign_id):
         self.obj.campaign_id = campaign_id
-        return self
+        return self  # возвращаем self, чтобы можно было вызывать методы цепочкой
 
     def set_rule(self, rule):
         self.obj.rule = rule
@@ -140,346 +180,522 @@ class RecommendationBuilder:
 
     def build(self):
         return self.obj
+
+
+# Пример использования
+recommendation = (
+    RecommendationBuilder()
+    .set_campaign_id("cmp_101")
+    .set_rule("LOW_CTR")
+    .set_message("Нужно пересмотреть креативы или ключевые фразы")
+    .set_evidence({"ctr": 0.004, "clicks": 12, "impressions": 3000})
+    .build()
+)
+
+print(recommendation)
 ```
+
+### Что здесь происходит
+
+Объект рекомендации не создается сразу одной длинной строкой.
+Он собирается постепенно: сначала задается кампания, потом правило, потом сообщение, потом доказательства.
+
+### Почему это удобно
+
+Такой подход делает код понятнее, особенно если полей много.
+Кроме того, Builder хорошо подходит для ситуаций, когда некоторые поля могут быть необязательными.
 
 ---
 
 ## 3. Singleton
 
-**Общее назначение:**
-Гарантирует, что у класса существует только один экземпляр.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для хранения конфигурации приложения.
+Singleton гарантирует, что у класса будет только один экземпляр на всю программу.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class AppConfig {
-      -_instance
-      +api_key
-      +db_url
-      +get_instance()
-    }
-```
+В системе есть конфигурация приложения:
 
-### Код
+* адрес базы данных;
+* API-ключ;
+* режим запуска;
+* другие глобальные настройки.
+
+Такие данные должны храниться в одном месте, чтобы все части программы использовали одинаковую конфигурацию.
+
+### Как используется
+
+При первом обращении объект создается, а дальше возвращается уже существующий экземпляр.
+
+### Код с комментариями
 
 ```python
 class AppConfig:
-    _instance = None
+    _instance = None  # здесь будет храниться единственный экземпляр
 
-    def __init__(self, api_key="demo", db_url="postgresql://..."):
+    def __init__(self, api_key="demo_key", db_url="postgresql://localhost:5432/app"):
         self.api_key = api_key
         self.db_url = db_url
 
     @classmethod
     def get_instance(cls):
+        # если экземпляр еще не создан — создаем
         if cls._instance is None:
             cls._instance = cls()
+        # если уже создан — возвращаем существующий
         return cls._instance
+
+
+# Пример использования
+config1 = AppConfig.get_instance()
+config2 = AppConfig.get_instance()
+
+print(config1.api_key)
+print(config1 is config2)  # True, это один и тот же объект
 ```
+
+### Что здесь происходит
+
+Метод `get_instance()` проверяет, существует ли уже объект конфигурации.
+Если нет — создает его. Если да — возвращает уже существующий.
+
+### Почему это удобно
+
+Так система всегда работает с одной и той же конфигурацией, а не создает ее заново в разных местах кода.
 
 ---
 
-## Структурные шаблоны
+# Структурные шаблоны
 
 ## 4. Adapter
 
-**Общее назначение:**
-Преобразует интерфейс одного класса в интерфейс, ожидаемый клиентом.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Позволяет привести Yandex Direct API и другие внешние источники к единому методу `fetch_stats()`.
+Adapter приводит разные интерфейсы к единому виду.
+То есть он помогает работать с разными внешними системами одинаково.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class StatsProvider {
-      <<interface>>
-      +fetch_stats(account_id, date_from, date_to)
-    }
+Система может получать данные из разных источников:
 
-    class YandexDirectAdapter {
-      +fetch_stats(account_id, date_from, date_to)
-    }
+* из API Яндекс Директ;
+* из Яндекс Метрики;
+* из тестового источника;
+* из локального файла.
 
-    class MetricaAdapter {
-      +fetch_stats(account_id, date_from, date_to)
-    }
+У всех этих источников формат и методы могут быть разными.
+Чтобы основной код не зависел от этих различий, используется адаптер.
 
-    StatsProvider <|.. YandexDirectAdapter
-    StatsProvider <|.. MetricaAdapter
-```
+### Как используется
 
-### Код
+Каждый источник оборачивается в класс с одинаковым методом `fetch_stats()`.
+
+### Код с комментариями
 
 ```python
+# Общий интерфейс поставщика статистики
 class StatsProvider:
     def fetch_stats(self, account_id, date_from, date_to):
         raise NotImplementedError
 
+
+# Адаптер для источника Яндекс Директ
 class YandexDirectAdapter(StatsProvider):
     def fetch_stats(self, account_id, date_from, date_to):
-        return [{"campaign_id": "c1", "impressions": 1000, "clicks": 10, "spend": 1200, "conversions": 0}]
+        # Здесь в реальном проекте был бы запрос к API Яндекс Директ
+        return [
+            {
+                "campaign_id": "cmp_1",
+                "impressions": 1000,
+                "clicks": 10,
+                "spend": 1200,
+                "conversions": 0
+            }
+        ]
+
+
+# Адаптер для источника Метрики
+class MetricaAdapter(StatsProvider):
+    def fetch_stats(self, account_id, date_from, date_to):
+        # Здесь в реальном проекте был бы запрос к API Метрики
+        return [
+            {
+                "campaign_id": "cmp_2",
+                "impressions": 500,
+                "clicks": 20,
+                "spend": 900,
+                "conversions": 3
+            }
+        ]
+
+
+# Основной код работает одинаково с любым адаптером
+def load_and_print(provider: StatsProvider):
+    stats = provider.fetch_stats("acc_1", "2026-03-01", "2026-03-10")
+    print(stats)
+
+
+load_and_print(YandexDirectAdapter())
+load_and_print(MetricaAdapter())
 ```
+
+### Что здесь происходит
+
+Несмотря на то что источники данных разные, основной код вызывает у них один и тот же метод `fetch_stats()`.
+
+### Почему это удобно
+
+Если позже появится новый источник данных, достаточно будет написать еще один адаптер.
+Остальная система останется без изменений.
 
 ---
 
 ## 5. Facade
 
-**Общее назначение:**
-Предоставляет упрощенный интерфейс к сложной подсистеме.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Фасад объединяет получение статистики, расчет KPI, проверку правил и формирование рекомендаций.
+Facade предоставляет один простой интерфейс для работы со сложной системой.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class AnalysisFacade {
-      +run(account_id, date_from, date_to)
-    }
+Полный анализ кампании включает несколько шагов:
 
-    class StatsProvider
-    class KpiCalculator
-    class RulesEngine
-    class RecommendationService
+* загрузка статистики;
+* расчет KPI;
+* проверка правил;
+* создание рекомендаций.
 
-    AnalysisFacade --> StatsProvider
-    AnalysisFacade --> KpiCalculator
-    AnalysisFacade --> RulesEngine
-    AnalysisFacade --> RecommendationService
-```
+Если вызывать все это вручную из контроллера, код станет громоздким.
+Поэтому удобнее сделать фасад, который запускает весь процесс одной командой.
 
-### Код
+### Как используется
+
+Внешний код вызывает только один метод `run()`.
+
+### Код с комментариями
 
 ```python
+class KpiCalculator:
+    def calc(self, row):
+        ctr = row["clicks"] / row["impressions"] if row["impressions"] else 0
+        cpc = row["spend"] / row["clicks"] if row["clicks"] else 0
+        cpa = row["spend"] / row["conversions"] if row["conversions"] else None
+        return {"ctr": ctr, "cpc": cpc, "cpa": cpa}
+
+
+class RulesEngine:
+    def __init__(self, rules):
+        self.rules = rules
+
+    def check_all(self, row, kpi):
+        issues = []
+        for rule in self.rules:
+            result = rule.check(row, kpi)
+            if result:
+                issues.append(result)
+        return issues
+
+
+class RecommendationService:
+    def make_recommendations(self, row, issues):
+        recommendations = []
+        for issue in issues:
+            reco = (
+                RecommendationBuilder()
+                .set_campaign_id(row["campaign_id"])
+                .set_rule(issue["rule"])
+                .set_message(issue["message"])
+                .set_evidence(issue.get("evidence", {}))
+                .build()
+            )
+            recommendations.append(reco)
+        return recommendations
+
+
 class AnalysisFacade:
-    def __init__(self, provider, kpi_calc, rules_engine, reco_service):
+    def __init__(self, provider, kpi_calc, rules_engine, recommendation_service):
         self.provider = provider
         self.kpi_calc = kpi_calc
         self.rules_engine = rules_engine
-        self.reco_service = reco_service
+        self.recommendation_service = recommendation_service
 
     def run(self, account_id, date_from, date_to):
+        # 1. Получаем статистику
         stats_rows = self.provider.fetch_stats(account_id, date_from, date_to)
+
         result = []
+
+        # 2. Для каждой кампании рассчитываем KPI
+        # 3. Проверяем правила
+        # 4. Формируем рекомендации
         for row in stats_rows:
             kpi = self.kpi_calc.calc(row)
             issues = self.rules_engine.check_all(row, kpi)
-            result.extend(self.reco_service.make_recommendations(row, issues))
+            recommendations = self.recommendation_service.make_recommendations(row, issues)
+            result.extend(recommendations)
+
         return result
 ```
+
+### Что здесь происходит
+
+Фасад скрывает всю внутреннюю последовательность действий.
+Снаружи это выглядит как один простой вызов: «выполни анализ».
+
+### Почему это удобно
+
+Контроллер или API-слой не знает деталей реализации.
+Он просто обращается к фасаду, а тот координирует работу всех компонентов.
 
 ---
 
 ## 6. Decorator
 
-**Общее назначение:**
-Динамически добавляет объекту новую функциональность.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для логирования запросов к поставщику статистики.
+Decorator позволяет добавить объекту новую функциональность, не меняя его исходный код.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class StatsProvider {
-      <<interface>>
-      +fetch_stats(account_id, date_from, date_to)
-    }
+При работе с источником статистики полезно логировать обращения:
 
-    class YandexDirectAdapter
-    class LoggingStatsProvider
+* когда был запрос;
+* к какому аккаунту;
+* за какой период.
 
-    StatsProvider <|.. YandexDirectAdapter
-    StatsProvider <|.. LoggingStatsProvider
-    LoggingStatsProvider --> StatsProvider
-```
+Не хочется встраивать логирование внутрь каждого адаптера.
+Поэтому поверх поставщика статистики можно добавить декоратор.
 
-### Код
+### Как используется
+
+Декоратор оборачивает объект и передает вызов дальше, добавляя перед этим или после этого дополнительное поведение.
+
+### Код с комментариями
 
 ```python
 class LoggingStatsProvider(StatsProvider):
     def __init__(self, wrapped):
-        self.wrapped = wrapped
+        self.wrapped = wrapped  # объект, который мы декорируем
 
     def fetch_stats(self, account_id, date_from, date_to):
-        print(f"[LOG] fetch_stats for account={account_id}")
+        # Добавляем дополнительное поведение
+        print(f"[LOG] Запрос статистики: account_id={account_id}, period={date_from}..{date_to}")
+
+        # Передаем выполнение исходному объекту
         return self.wrapped.fetch_stats(account_id, date_from, date_to)
+
+
+# Пример использования
+provider = LoggingStatsProvider(YandexDirectAdapter())
+stats = provider.fetch_stats("acc_1", "2026-03-01", "2026-03-10")
+print(stats)
 ```
+
+### Что здесь происходит
+
+Класс `LoggingStatsProvider` не заменяет адаптер, а оборачивает его.
+Он сначала печатает лог, а потом вызывает реальный метод `fetch_stats()` у вложенного объекта.
+
+### Почему это удобно
+
+Можно добавлять логирование, не меняя исходный код адаптера.
+Точно так же можно добавлять и другие функции, например замер времени или проверку прав доступа.
 
 ---
 
 ## 7. Proxy
 
-**Общее назначение:**
-Предоставляет объект-заместитель, который контролирует доступ к другому объекту.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для кэширования статистики, чтобы не обращаться к внешнему API повторно.
+Proxy — это объект-заместитель, который контролирует доступ к другому объекту.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class StatsProvider {
-      <<interface>>
-      +fetch_stats(account_id, date_from, date_to)
-    }
+Внешние API не стоит вызывать лишний раз, потому что это:
 
-    class CachedStatsProxy {
-      -cache
-      +fetch_stats(account_id, date_from, date_to)
-    }
+* медленнее;
+* может расходовать лимиты;
+* создает лишнюю нагрузку.
 
-    class YandexDirectAdapter {
-      +fetch_stats(account_id, date_from, date_to)
-    }
+Поэтому можно использовать прокси с кэшем: если данные уже были запрошены ранее, повторно обращаться к API не нужно.
 
-    StatsProvider <|.. CachedStatsProxy
-    StatsProvider <|.. YandexDirectAdapter
-    CachedStatsProxy --> YandexDirectAdapter
-```
+### Как используется
 
-### Код
+Прокси проверяет, есть ли уже результат в кэше.
+Если есть — возвращает его. Если нет — идет к реальному объекту.
+
+### Код с комментариями
 
 ```python
 class CachedStatsProxy(StatsProvider):
     def __init__(self, wrapped):
         self.wrapped = wrapped
-        self.cache = {}
+        self.cache = {}  # словарь для хранения уже полученных результатов
 
     def fetch_stats(self, account_id, date_from, date_to):
         key = (account_id, date_from, date_to)
-        if key not in self.cache:
-            self.cache[key] = self.wrapped.fetch_stats(account_id, date_from, date_to)
-        return self.cache[key]
+
+        # Если данные уже есть в кэше — сразу возвращаем их
+        if key in self.cache:
+            print("[CACHE] Данные взяты из кэша")
+            return self.cache[key]
+
+        # Иначе обращаемся к реальному поставщику
+        print("[CACHE] Данных нет в кэше, выполняем реальный запрос")
+        result = self.wrapped.fetch_stats(account_id, date_from, date_to)
+        self.cache[key] = result
+        return result
+
+
+# Пример использования
+provider = CachedStatsProxy(YandexDirectAdapter())
+
+provider.fetch_stats("acc_1", "2026-03-01", "2026-03-10")
+provider.fetch_stats("acc_1", "2026-03-01", "2026-03-10")  # второй раз пойдет из кэша
 ```
+
+### Что здесь происходит
+
+Первый вызов обращается к настоящему поставщику.
+Второй вызов с теми же параметрами возвращает уже сохраненный результат.
+
+### Почему это удобно
+
+Система работает быстрее и делает меньше внешних запросов.
 
 ---
 
-## Поведенческие шаблоны
+# Поведенческие шаблоны
 
 ## 8. Strategy
 
-**Общее назначение:**
-Позволяет определять семейство алгоритмов и делать их взаимозаменяемыми.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для выбора стратегии расчета KPI или стратегии анализа.
+Strategy позволяет выбирать один из нескольких алгоритмов и менять его без изменения основного кода.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class AnalysisStrategy {
-      <<interface>>
-      +analyze(stats)
-    }
+В системе можно использовать разные режимы анализа:
 
-    class BasicAnalysisStrategy {
-      +analyze(stats)
-    }
+* базовый анализ;
+* расширенный анализ;
+* более строгий анализ для крупных рекламных аккаунтов.
 
-    class ExtendedAnalysisStrategy {
-      +analyze(stats)
-    }
+Это разные алгоритмы, но вызываются они одинаково.
 
-    class AnalyzerContext {
-      +set_strategy(strategy)
-      +run(stats)
-    }
+### Как используется
 
-    AnalysisStrategy <|.. BasicAnalysisStrategy
-    AnalysisStrategy <|.. ExtendedAnalysisStrategy
-    AnalyzerContext --> AnalysisStrategy
-```
+Контекст хранит ссылку на стратегию и вызывает ее метод.
 
-### Код
+### Код с комментариями
 
 ```python
 class AnalysisStrategy:
     def analyze(self, stats):
         raise NotImplementedError
 
+
+# Простая стратегия анализа
 class BasicAnalysisStrategy(AnalysisStrategy):
     def analyze(self, stats):
-        return {"mode": "basic", "count": len(stats)}
+        return {
+            "mode": "basic",
+            "campaigns_count": len(stats)
+        }
 
+
+# Расширенная стратегия анализа
 class ExtendedAnalysisStrategy(AnalysisStrategy):
     def analyze(self, stats):
         total_spend = sum(row["spend"] for row in stats)
-        return {"mode": "extended", "total_spend": total_spend}
+        total_clicks = sum(row["clicks"] for row in stats)
 
+        return {
+            "mode": "extended",
+            "campaigns_count": len(stats),
+            "total_spend": total_spend,
+            "total_clicks": total_clicks
+        }
+
+
+# Контекст использует выбранную стратегию
 class AnalyzerContext:
-    def __init__(self, strategy):
+    def __init__(self, strategy: AnalysisStrategy):
         self.strategy = strategy
 
-    def set_strategy(self, strategy):
+    def set_strategy(self, strategy: AnalysisStrategy):
         self.strategy = strategy
 
     def run(self, stats):
         return self.strategy.analyze(stats)
+
+
+# Пример использования
+stats = [
+    {"spend": 500, "clicks": 10},
+    {"spend": 900, "clicks": 30}
+]
+
+context = AnalyzerContext(BasicAnalysisStrategy())
+print(context.run(stats))
+
+context.set_strategy(ExtendedAnalysisStrategy())
+print(context.run(stats))
 ```
+
+### Что здесь происходит
+
+Объект `AnalyzerContext` сам не знает деталей анализа.
+Он просто вызывает текущую стратегию.
+
+### Почему это удобно
+
+Можно легко менять логику анализа, не переписывая остальной код.
 
 ---
 
 ## 9. Observer
 
-**Общее назначение:**
-Определяет зависимость «один ко многим», чтобы при изменении состояния объекта все подписчики получали уведомление.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для уведомления подсистемы логирования или нотификаций о завершении анализа.
+Observer нужен для уведомления подписчиков о событии.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class Subject {
-      +subscribe(observer)
-      +notify(event)
-    }
+После завершения анализа можно выполнить дополнительные действия:
 
-    class Observer {
-      <<interface>>
-      +update(event)
-    }
+* записать событие в лог;
+* отправить уведомление;
+* сохранить информацию о завершении процесса.
 
-    class NotificationObserver {
-      +update(event)
-    }
+Все это удобно делать через подписчиков.
 
-    class LogObserver {
-      +update(event)
-    }
+### Как используется
 
-    Subject --> Observer
-    Observer <|.. NotificationObserver
-    Observer <|.. LogObserver
-```
+Один объект рассылает событие всем наблюдателям.
 
-### Код
+### Код с комментариями
 
 ```python
 class Observer:
     def update(self, event):
         raise NotImplementedError
 
+
+# Наблюдатель для логирования
 class LogObserver(Observer):
     def update(self, event):
         print("[LOG]", event)
 
+
+# Наблюдатель для уведомлений
 class NotificationObserver(Observer):
     def update(self, event):
-        print("[NOTIFY]", event)
+        print("[NOTIFICATION]", event)
 
+
+# Объект, за которым наблюдают
 class AnalysisSubject:
     def __init__(self):
         self.observers = []
@@ -488,47 +704,56 @@ class AnalysisSubject:
         self.observers.append(observer)
 
     def notify(self, event):
-        for obs in self.observers:
-            obs.update(event)
+        for observer in self.observers:
+            observer.update(event)
+
+
+# Пример использования
+subject = AnalysisSubject()
+subject.subscribe(LogObserver())
+subject.subscribe(NotificationObserver())
+
+subject.notify("Анализ рекламных кампаний завершен")
 ```
+
+### Что здесь происходит
+
+Объект `AnalysisSubject` не знает, что именно делают подписчики.
+Он просто отправляет им событие.
+
+### Почему это удобно
+
+Можно добавлять новые реакции на событие, не меняя основной код анализа.
 
 ---
 
 ## 10. Command
 
-**Общее назначение:**
-Инкапсулирует запрос как объект.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для постановки задачи анализа в очередь.
+Command превращает действие в отдельный объект.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class Command {
-      <<interface>>
-      +execute()
-    }
+Запуск анализа можно представить как отдельную команду.
+Это удобно, если анализ нужно:
 
-    class RunAnalysisCommand {
-      +execute()
-    }
+* ставить в очередь;
+* запускать позже;
+* повторять;
+* логировать отдельно.
 
-    class AnalysisFacade {
-      +run(account_id, date_from, date_to)
-    }
+### Как используется
 
-    Command <|.. RunAnalysisCommand
-    RunAnalysisCommand --> AnalysisFacade
-```
+Создается объект команды, в котором уже есть все данные для выполнения анализа.
 
-### Код
+### Код с комментариями
 
 ```python
 class Command:
     def execute(self):
         raise NotImplementedError
+
 
 class RunAnalysisCommand(Command):
     def __init__(self, facade, account_id, date_from, date_to):
@@ -538,38 +763,37 @@ class RunAnalysisCommand(Command):
         self.date_to = date_to
 
     def execute(self):
+        # Команда инкапсулирует весь запрос на выполнение анализа
         return self.facade.run(self.account_id, self.date_from, self.date_to)
 ```
+
+### Что здесь происходит
+
+Команда хранит в себе все, что нужно для запуска анализа: фасад и параметры периода.
+
+### Почему это удобно
+
+Команду можно передавать в очередь, сохранять, повторять и обрабатывать отдельно от вызывающего кода.
 
 ---
 
 ## 11. Chain of Responsibility
 
-**Общее назначение:**
-Позволяет передавать запрос по цепочке обработчиков, пока один из них не обработает его.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для последовательного применения правил анализа.
+Этот шаблон позволяет передавать запрос по цепочке обработчиков.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class RuleHandler {
-      <<abstract>>
-      +set_next(handler)
-      +handle(stats, kpi)
-    }
+В системе есть несколько правил анализа.
+Они могут проверяться последовательно одно за другим.
+Каждый обработчик проверяет свое условие.
 
-    class LowCtrHandler
-    class HighSpendHandler
+### Как используется
 
-    RuleHandler <|-- LowCtrHandler
-    RuleHandler <|-- HighSpendHandler
-    RuleHandler --> RuleHandler
-```
+Правила связываются в цепочку, и данные проходят через нее.
 
-### Код
+### Код с комментариями
 
 ```python
 class RuleHandler:
@@ -582,61 +806,90 @@ class RuleHandler:
 
     def handle(self, stats, kpi):
         result = self.check(stats, kpi)
+
+        # Если текущий обработчик что-то нашел — возвращаем результат
         if result:
             return [result]
+
+        # Иначе передаем запрос дальше по цепочке
         if self.next_handler:
             return self.next_handler.handle(stats, kpi)
+
         return []
 
     def check(self, stats, kpi):
         raise NotImplementedError
 
+
 class LowCtrHandler(RuleHandler):
     def check(self, stats, kpi):
         if kpi["ctr"] < 0.01:
-            return {"rule": "LOW_CTR", "message": "Низкий CTR"}
+            return {
+                "rule": "LOW_CTR",
+                "message": "Низкий CTR"
+            }
+
 
 class HighSpendHandler(RuleHandler):
     def check(self, stats, kpi):
         if stats["spend"] > 1000 and stats["conversions"] == 0:
-            return {"rule": "HIGH_SPEND_NO_CONVERSIONS", "message": "Высокий расход без конверсий"}
+            return {
+                "rule": "HIGH_SPEND_NO_CONVERSIONS",
+                "message": "Высокий расход без конверсий"
+            }
+
+
+# Пример использования
+handler1 = LowCtrHandler()
+handler2 = HighSpendHandler()
+
+handler1.set_next(handler2)
+
+result = handler1.handle(
+    stats={"spend": 1500, "conversions": 0},
+    kpi={"ctr": 0.02}
+)
+
+print(result)
 ```
+
+### Что здесь происходит
+
+Если первое правило не срабатывает, управление передается следующему.
+Так можно организовать последовательную проверку набора условий.
+
+### Почему это удобно
+
+Каждое правило оформлено отдельно, и цепочку можно легко менять: добавлять новые звенья, убирать старые, менять порядок.
 
 ---
 
 ## 12. Template Method
 
-**Общее назначение:**
-Определяет скелет алгоритма, оставляя реализацию некоторых шагов подклассам.
+### Что делает шаблон
 
-**Назначение в проекте:**
-Используется для общего алгоритма анализа данных.
+Template Method задает общий каркас алгоритма, а отдельные шаги оставляет подклассам.
 
-### UML-диаграмма
+### Зачем он нужен в этом проекте
 
-```mermaid
-classDiagram
-    class BaseAnalyzer {
-      +run(stats)
-      +prepare(stats)
-      +analyze(prepared)
-      +format_result(result)
-    }
+Процесс анализа обычно состоит из одинаковых этапов:
 
-    class CampaignAnalyzer {
-      +prepare(stats)
-      +analyze(prepared)
-      +format_result(result)
-    }
+* подготовить данные;
+* выполнить анализ;
+* оформить результат.
 
-    BaseAnalyzer <|-- CampaignAnalyzer
-```
+Но конкретная реализация этих шагов может отличаться в зависимости от типа анализа.
 
-### Код
+### Как используется
+
+Базовый класс определяет общий порядок действий, а дочерний класс реализует конкретные шаги.
+
+### Код с комментариями
 
 ```python
 class BaseAnalyzer:
     def run(self, stats):
+        # Общий алгоритм всегда одинаковый
         prepared = self.prepare(stats)
         result = self.analyze(prepared)
         return self.format_result(result)
@@ -650,267 +903,37 @@ class BaseAnalyzer:
     def format_result(self, result):
         raise NotImplementedError
 
+
 class CampaignAnalyzer(BaseAnalyzer):
     def prepare(self, stats):
+        # На этом этапе можно очищать или фильтровать входные данные
         return stats
 
     def analyze(self, prepared):
+        # Здесь выполняется конкретный анализ
         return {"campaigns_count": len(prepared)}
 
     def format_result(self, result):
+        # Здесь оформляется результат в нужном виде
         return {"status": "ok", "data": result}
+
+
+# Пример использования
+analyzer = CampaignAnalyzer()
+result = analyzer.run([
+    {"campaign_id": "c1"},
+    {"campaign_id": "c2"},
+    {"campaign_id": "c3"}
+])
+
+print(result)
 ```
 
----
+### Что здесь происходит
 
-# Шаблоны проектирования GRASP
+Метод `run()` уже задает готовую последовательность действий.
+Подкласс только подставляет свою реализацию отдельных этапов.
 
-## Роли (обязанности) классов
+### Почему это удобно
 
-## 1. Information Expert
-
-**Проблема:**
-Кто должен рассчитывать CTR, CPC, CPA?
-
-**Решение:**
-Расчет выполняет `KpiCalculator`, потому что именно он владеет знаниями о формулах KPI.
-
-**Код**
-
-```python
-class KpiCalculator:
-    def calc(self, row):
-        ctr = row["clicks"] / row["impressions"] if row["impressions"] else 0
-        cpc = row["spend"] / row["clicks"] if row["clicks"] else 0
-        cpa = row["spend"] / row["conversions"] if row["conversions"] else None
-        return {"ctr": ctr, "cpc": cpc, "cpa": cpa}
-```
-
-**Результат:**
-Повышается связность логики расчета и снижается дублирование.
-
-**Связь с другими паттернами:**
-SRP, Facade.
-
----
-
-## 2. Creator
-
-**Проблема:**
-Кто должен создавать объекты рекомендаций?
-
-**Решение:**
-`RecommendationBuilder` и `RecommendationService` создают рекомендации, так как они непосредственно работают с их данными.
-
-**Код**
-
-```python
-class RecommendationService:
-    def make_recommendations(self, row, issues):
-        result = []
-        for issue in issues:
-            reco = RecommendationBuilder() \
-                .set_campaign_id(row["campaign_id"]) \
-                .set_rule(issue["rule"]) \
-                .set_message(issue["message"]) \
-                .set_evidence(issue.get("evidence", {})) \
-                .build()
-            result.append(reco)
-        return result
-```
-
-**Результат:**
-Создание объектов сосредоточено в одном месте.
-
-**Связь:**
-Builder, Factory Method.
-
----
-
-## 3. Controller
-
-**Проблема:**
-Какой объект должен принимать внешний запрос пользователя?
-
-**Решение:**
-`ReportController` или API endpoint выступает контроллером и передает выполнение фасаду/сервисам.
-
-**Код**
-
-```python
-@app.post("/api/v1/analysis-runs")
-def create_run(payload: RunCreate):
-    return analysis_facade.run(payload.account_id, payload.date_from, payload.date_to)
-```
-
-**Результат:**
-Интерфейс отделен от бизнес-логики.
-
-**Связь:**
-Facade, SoC.
-
----
-
-## 4. Pure Fabrication
-
-**Проблема:**
-Где разместить техническую логику, которая не относится напрямую к сущностям?
-
-**Решение:**
-Создаются специальные сервисы (`RecommendationService`, `RulesEngine`, `AccountRepository`).
-
-**Код**
-
-```python
-class RulesEngine:
-    def check_all(self, row, kpi):
-        pass
-```
-
-**Результат:**
-Сущности не перегружены лишней логикой.
-
-**Связь:**
-Low Coupling, High Cohesion.
-
----
-
-## 5. Indirection
-
-**Проблема:**
-Как уменьшить связанность между API и внешними источниками данных?
-
-**Решение:**
-Вводится промежуточный слой `StatsProvider` / `Adapter`.
-
-**Код**
-
-```python
-class StatsProvider:
-    def fetch_stats(self, account_id, date_from, date_to):
-        raise NotImplementedError
-```
-
-**Результат:**
-Можно заменить источник данных без изменения основного кода.
-
-**Связь:**
-Adapter, Protected Variations.
-
----
-
-## Принципы разработки
-
-## 1. Low Coupling
-
-**Проблема:**
-Если классы слишком зависят друг от друга, систему трудно изменять.
-
-**Решение:**
-Используются интерфейсы и сервисы с четкими ролями.
-
-**Код**
-
-```python
-class RecommendationService:
-    def __init__(self, provider, rules_engine):
-        self.provider = provider
-        self.rules_engine = rules_engine
-```
-
-**Результат:**
-Классы легче тестировать и заменять.
-
-**Связь:**
-DIP, Adapter, Proxy.
-
----
-
-## 2. High Cohesion
-
-**Проблема:**
-Если класс делает слишком много, его трудно поддерживать.
-
-**Решение:**
-Каждый класс решает одну основную задачу:
-
-* `KpiCalculator` считает KPI,
-* `RulesEngine` применяет правила,
-* `RecommendationService` формирует рекомендации.
-
-**Результат:**
-Код проще читать и защищать.
-
-**Связь:**
-SRP, Facade.
-
----
-
-## 3. Protected Variations
-
-**Проблема:**
-Как защитить систему от изменений внешнего API или логики правил?
-
-**Решение:**
-Изменяемые части скрываются за абстракциями (`StatsProvider`, `BaseRule`, `AnalysisStrategy`).
-
-**Код**
-
-```python
-class StatsProvider:
-    def fetch_stats(self, account_id, date_from, date_to):
-        raise NotImplementedError
-```
-
-**Результат:**
-Изменения меньше влияют на остальной код.
-
-**Связь:**
-Strategy, Adapter, Factory Method.
-
----
-
-## Свойство программы (цель)
-
-## Maintainability / Сопровождаемость
-
-**Проблема:**
-Система должна легко поддерживаться и расширяться: добавление новых правил, источников данных, стратегий анализа.
-
-**Решение:**
-Сочетание шаблонов Factory Method, Strategy, Adapter, Facade, Chain of Responsibility и GRASP-принципов Low Coupling / High Cohesion.
-
-**Код**
-
-```python
-factory = RuleFactory()
-rule = factory.create_rule("LOW_CTR")
-```
-
-**Результат:**
-Новые функции можно добавлять без полного переписывания существующего кода.
-
-**Связь:**
-Protected Variations, OCP, SoC.
-
----
-
-# Вывод
-
-В ходе лабораторной работы были рассмотрены и адаптированы к проекту 12 шаблонов GoF:
-
-* **Порождающие:** Factory Method, Builder, Singleton
-* **Структурные:** Adapter, Facade, Decorator, Proxy
-* **Поведенческие:** Strategy, Observer, Command, Chain of Responsibility, Template Method
-
-Кроме того, был проведен анализ проектных решений с точки зрения GRASP.
-Выбранные шаблоны позволяют сделать систему более понятной, модульной, расширяемой и удобной в сопровождении.
-
-Для данного проекта особенно полезными оказались:
-
-* **Factory Method** — для создания правил,
-* **Facade** — для запуска полного цикла анализа,
-* **Adapter** — для работы с внешними API,
-* **Strategy** — для смены алгоритмов анализа,
-* **Chain of Responsibility** — для применения правил,
-* **Low Coupling / High Cohesion** — для общей структуры кода.
+Общий алгоритм не дублируется, но при этом конкретные шаги можно менять в дочерних классах.
